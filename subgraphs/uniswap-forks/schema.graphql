@@ -941,7 +941,7 @@ enum AirNetwork {
   NEAR_MAINNET
   OPTIMISM
   OSMOSIS
-  matic # aka Polygon
+  MATIC # aka Polygon
   XDAI # aka Gnosis Chain
 }
 

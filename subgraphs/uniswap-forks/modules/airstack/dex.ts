@@ -43,6 +43,15 @@ import { BIGDECIMAL_ZERO } from "../../src/common/constants";
 const OUT = "OUT";
 const IN = "IN";
 export namespace dex {
+  // TODO: create a proper logic here.
+  export function updatePoolBalances(poolAddress: string): void {
+    const dexPool = getOrCreateAirDexPool(poolAddress);
+    let mPool = getLiquidityPool(poolAddress);
+    dexPool.inputTokenBalances = mPool.inputTokenBalances;
+    dexPool.totalValueLockedUSD = mPool.totalValueLockedUSD;
+    dexPool.save();
+  }
+
   function getAirDexPoolId(poolAddress: string): string {
     const dexPoolId = dataSource
       .network()
@@ -168,16 +177,7 @@ export namespace dex {
       timestamp,
       hash
     );
-    updatePoolBalances(poolAddress);
-  }
-
-  // TODO: create a proper logic here.
-  function updatePoolBalances(poolAddress: string): void {
-    const dexPool = getOrCreateAirDexPool(poolAddress);
-    let mPool = getLiquidityPool(poolAddress);
-    dexPool.inputTokenBalances = mPool.inputTokenBalances;
-    dexPool.totalValueLockedUSD = mPool.totalValueLockedUSD;
-    dexPool.save();
+    //updatePoolBalances(poolAddress);
   }
 
   function getOrCreateAirLiquidityPoolStats(id: string): AirLiquidityPoolStats {
@@ -929,7 +929,7 @@ export namespace dex {
       AirProtocolActionType.SWAP
     );
 
-    updatePoolBalances(poolAddress);
+    //updatePoolBalances(poolAddress);
   }
 
   function getOrCreateAirDexSwapStats(id: string): AirDEXSwapStats {

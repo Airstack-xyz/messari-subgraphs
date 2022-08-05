@@ -77,6 +77,7 @@ export function handleTransfer(event: Transfer): void {
       event.params.from.toHexString()
     );
   }
+  dex.updatePoolBalances(event.address.toHexString());
 }
 
 // Handle Sync event.
@@ -89,6 +90,7 @@ export function handleSync(event: Sync): void {
     event.params.reserve1
   );
   updateTvlAndTokenPrices(event.address.toHexString());
+  dex.updatePoolBalances(event.address.toHexString());
 }
 
 // Handle a mint event emitted from a pool contract. Considered a deposit into the given liquidity pool.
@@ -107,6 +109,7 @@ export function handleMint(event: Mint): void {
     event.block.timestamp
   );
   updateAirMeta(event);
+  dex.updatePoolBalances(event.address.toHexString());
 }
 
 // Handle a burn event emitted from a pool contract. Considered a withdraw into the given liquidity pool.
@@ -115,6 +118,7 @@ export function handleBurn(event: Burn): void {
   updateUsageMetrics(event, event.transaction.from, UsageType.WITHDRAW);
   updateFinancials(event);
   updatePoolMetrics(event);
+  dex.updatePoolBalances(event.address.toHexString());
 }
 
 // Handle a swap event emitted from a pool contract.
@@ -131,4 +135,5 @@ export function handleSwap(event: Swap): void {
   updateFinancials(event);
   updatePoolMetrics(event);
   updateUsageMetrics(event, event.transaction.from, UsageType.SWAP);
+  dex.updatePoolBalances(event.address.toHexString());
 }
