@@ -119,6 +119,11 @@ export function handleBurn(event: Burn): void {
   updateFinancials(event);
   updatePoolMetrics(event);
   dex.updatePoolBalances(event.address.toHexString());
+
+  dex.removeLiquidity(event.address.toHexString(), [
+    event.params.amount0,
+    event.params.amount1,
+  ]);
 }
 
 // Handle a swap event emitted from a pool contract.

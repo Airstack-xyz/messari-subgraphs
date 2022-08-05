@@ -131,6 +131,26 @@ export namespace dex {
     dexPool.save();
   }
 
+  export function removeLiquidity(
+    poolAddress: string,
+    outputAmounts: Array<BigInt>
+  ): void {
+    const dexPool = getOrCreateAirDexPool(poolAddress);
+
+    let totalUSDPrice = BIG_DECIMAL.ZERO;
+    for (let index = 0; index < dexPool.inputToken.length; index++) {
+      const tokenAddress = dexPool.inputToken[index];
+      const token = getOrCreateAirToken(tokenAddress);
+      const priceInUsd = usdPrice(
+        token.address,
+        token.decimals,
+        outputAmounts[index]
+      );
+      totalUSDPrice = totalUSDPrice.plus(priceInUsd);
+    }
+
+    decreasePoolBalances(poolAddress, outputAmounts, totalUSDPrice);
+  }
   export function addLiquidity(
     poolAddress: string,
     inputAmounts: Array<BigInt>,
@@ -269,28 +289,30 @@ export namespace dex {
 
     let totalUSDPrice: BigDecimal = BIG_DECIMAL.ZERO;
 
+    const inputTokenAmounts: Array<BigInt> = [];
     for (let index = 0; index < inputTokenTransfer.length; index++) {
       const iTokenTransfer = inputTokenTransfer[index];
       const token = getOrCreateAirToken(iTokenTransfer.token);
 
-      // Changed the usd price logic.
-      const mToken = getOrCreateToken(token.address);
-      let mTokenAmount = convertTokenToDecimal(
-        iTokenTransfer.amount,
-        token.decimals
+      // // Changed the usd price logic.
+      // const mToken = getOrCreateToken(token.address);
+      // let mTokenAmount = convertTokenToDecimal(
+      //   iTokenTransfer.amount,
+      //   token.decimals
+      // );
+      // const mTokenLastPrice = mToken.lastPriceUSD;
+      // let priceInUsd = BIGDECIMAL_ZERO;
+      // if (mTokenLastPrice !== null) {
+      //   priceInUsd = mTokenLastPrice.times(mTokenAmount);
+      // }
+      const priceInUsd = usdPrice(
+        token.address,
+        token.decimals,
+        iTokenTransfer.amount
       );
-      const mTokenLastPrice = mToken.lastPriceUSD;
-      let priceInUsd = BIGDECIMAL_ZERO;
-      if (mTokenLastPrice !== null) {
-        priceInUsd = mTokenLastPrice.times(mTokenAmount);
-        // const priceInUsd = usdPrice(
-        //   token.address,
-        //   token.decimals,
-        //   iTokenTransfer.amount
-        // );
 
-        totalUSDPrice = totalUSDPrice.plus(priceInUsd);
-      }
+      inputTokenAmounts.push(iTokenTransfer.amount);
+      totalUSDPrice = totalUSDPrice.plus(priceInUsd);
 
       updateAirLiquidityPoolInputTokenStats(
         dexPool.id,
@@ -309,6 +331,8 @@ export namespace dex {
     statsEntity.save();
     aggregatedAccount.save();
     aggregateEntity.save();
+
+    addPoolBalances(dexPool.poolAddress, inputTokenAmounts, totalUSDPrice);
 
     updateAirLiquidityPoolOutputTokenStats(
       dexPool.id,
@@ -848,19 +872,19 @@ export namespace dex {
 
     let totalUSDPrice: BigDecimal = BIG_DECIMAL.ZERO;
 
-    // Change the logic for pricing
-    const mInToken = getOrCreateToken(inputToken.address);
-    let mInTokenAmount = convertTokenToDecimal(
-      inputAmounts[inputIndex],
-      inputToken.decimals
-    );
-    const inputPriceInUsd = mInToken.lastPriceUSD.times(mInTokenAmount);
-
-    // const inputPriceInUsd = usdPrice(
-    //   inputToken.address,
-    //   inputToken.decimals,
-    //   inputAmounts[inputIndex]
+    // // Change the logic for pricing
+    // const mInToken = getOrCreateToken(inputToken.address);
+    // let mInTokenAmount = convertTokenToDecimal(
+    //   inputAmounts[inputIndex],
+    //   inputToken.decimals
     // );
+    // const inputPriceInUsd = mInToken.lastPriceUSD.times(mInTokenAmount);
+
+    const inputPriceInUsd = usdPrice(
+      inputToken.address,
+      inputToken.decimals,
+      inputAmounts[inputIndex]
+    );
 
     totalUSDPrice = totalUSDPrice.plus(inputPriceInUsd);
 
@@ -874,19 +898,19 @@ export namespace dex {
       isFromAccountAlreadyAdded
     );
 
-    // Change the logic for pricing
-    const mOutToken = getOrCreateToken(outputToken.address);
-    let mOutTokenAmount = convertTokenToDecimal(
-      outputAmounts[inputIndex],
-      outputToken.decimals
-    );
-
-    const outputPriceInUsd = mOutToken.lastPriceUSD.times(mOutTokenAmount);
-    // const outputPriceInUsd = usdPrice(
-    //   outputToken.address,
-    //   outputToken.decimals,
-    //   outputAmounts[outputIndex]
+    // // Change the logic for pricing
+    // const mOutToken = getOrCreateToken(outputToken.address);
+    // let mOutTokenAmount = convertTokenToDecimal(
+    //   outputAmounts[inputIndex],
+    //   outputToken.decimals
     // );
+
+    // const outputPriceInUsd = mOutToken.lastPriceUSD.times(mOutTokenAmount);
+    const outputPriceInUsd = usdPrice(
+      outputToken.address,
+      outputToken.decimals,
+      outputAmounts[outputIndex]
+    );
     updateAirSwapOutputTokenStats(
       dexPool.id,
       dexStatsEntity.id,
@@ -927,6 +951,16 @@ export namespace dex {
       aggregateEntity,
       prevAggregateEntity,
       AirProtocolActionType.SWAP
+    );
+
+    swapPoolBalances(
+      dexPool.poolAddress,
+      inputToken.address,
+      inputAmounts[inputIndex],
+      inputPriceInUsd,
+      outputToken.address,
+      outputAmounts[outputIndex],
+      outputPriceInUsd
     );
 
     //updatePoolBalances(poolAddress);
@@ -1175,6 +1209,74 @@ export namespace dex {
     );
 
     dailyChangeStats.save();
+  }
+
+  export function swapPoolBalances(
+    poolAddress: string,
+    inputToken: string,
+    inputAmount: BigInt,
+    inputUSDAmount: BigDecimal,
+    outputToken: string,
+    outputAmount: BigInt,
+    outputUSDAmount: BigDecimal
+  ): void {
+    const dexPool = getOrCreateAirDexPool(poolAddress);
+    const inputBalances: Array<BigInt> = [];
+    for (let index = 0; index < dexPool.inputToken.length; index++) {
+      const existingAmount = dexPool.inputTokenBalances[index];
+      const currentTokenAddress = dexPool.inputToken[index];
+      let newAmount = existingAmount;
+      if (currentTokenAddress == inputToken) {
+        newAmount = existingAmount.plus(inputAmount);
+      }
+      if (currentTokenAddress == outputToken) {
+        newAmount = existingAmount.minus(outputAmount);
+      }
+      inputBalances.push(newAmount);
+    }
+    const newUSDValue = dexPool.totalValueLockedUSD
+      .plus(inputUSDAmount)
+      .minus(outputUSDAmount);
+    dexPool.inputTokenBalances = inputBalances;
+    dexPool.totalValueLockedUSD = newUSDValue;
+    dexPool.save();
+  }
+
+  export function addPoolBalances(
+    poolAddress: string,
+    inputAmounts: Array<BigInt>,
+    usdAmount: BigDecimal
+  ): void {
+    const dexPool = getOrCreateAirDexPool(poolAddress);
+    const inputBalances: Array<BigInt> = [];
+    for (let index = 0; index < dexPool.inputToken.length; index++) {
+      const existingAmount = dexPool.inputTokenBalances[index];
+      const addAmount = inputAmounts[index];
+      const newAmount = existingAmount.plus(addAmount);
+      inputBalances.push(newAmount);
+    }
+    const newUSDValue = dexPool.totalValueLockedUSD.plus(usdAmount);
+    dexPool.inputTokenBalances = inputBalances;
+    dexPool.totalValueLockedUSD = newUSDValue;
+    dexPool.save();
+  }
+  export function decreasePoolBalances(
+    poolAddress: string,
+    inputAmounts: Array<BigInt>,
+    usdAmount: BigDecimal
+  ): void {
+    const dexPool = getOrCreateAirDexPool(poolAddress);
+    const inputBalances: Array<BigInt> = [];
+    for (let index = 0; index < dexPool.inputToken.length; index++) {
+      const existingAmount = dexPool.inputTokenBalances[index];
+      const addAmount = inputAmounts[index];
+      const newAmount = existingAmount.minus(addAmount);
+      inputBalances.push(newAmount);
+    }
+    const newUSDValue = dexPool.totalValueLockedUSD.minus(usdAmount);
+    dexPool.inputTokenBalances = inputBalances;
+    dexPool.totalValueLockedUSD = newUSDValue;
+    dexPool.save();
   }
 
   // function updateAirSwapOutputTokenStatsDailyChangePercentage(

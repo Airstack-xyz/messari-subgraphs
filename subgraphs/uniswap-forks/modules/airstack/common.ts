@@ -219,7 +219,7 @@ export function getOrCreateAirDailyAggregateEntity(
     entity.startDayTimestamp = getDayOpenTime(timestamp);
     entity.walletCount = BigInt.zero();
     entity.transactionCount = BigInt.zero();
-    entity.network = "MATIC"; //getNetworkSchemaName(dataSource.network()); //"MAINNET"; //todo remove hardcode, check massari
+    entity.network = "MAINNET"; //getNetworkSchemaName(dataSource.network()); //"MAINNET"; //todo remove hardcode, check massari
     entity.updatedTimestamp = timestamp;
     entity.protocolType = protocolType;
     entity.protocolActionType = protocolActionType;

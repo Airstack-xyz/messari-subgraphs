@@ -1,6 +1,6 @@
 import { BigInt, BigDecimal, Address } from "@graphprotocol/graph-ts";
 import { BIGDECIMAL_ZERO } from "../../../src/common/constants";
-//import { getUsdPrice } from "../../prices";
+import { getUsdPrice } from "../../prices";
 
 export function usdPrice(
   tokenAddress: string,
@@ -12,11 +12,11 @@ export function usdPrice(
       .pow(decimal as u8)
       .toBigDecimal()
   );
-  // const volumeInUSD = getUsdPrice(
-  //   Address.fromString(tokenAddress),
-  //   formattedAmount
-  // );
-  // return volumeInUSD;
+  const volumeInUSD = getUsdPrice(
+    Address.fromString(tokenAddress),
+    formattedAmount
+  );
+  return volumeInUSD;
 
-  return BIGDECIMAL_ZERO;
+  // return BIGDECIMAL_ZERO;
 }
