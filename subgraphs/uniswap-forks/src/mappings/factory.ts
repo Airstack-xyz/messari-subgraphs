@@ -1,7 +1,9 @@
-import { log } from "@graphprotocol/graph-ts";
+import { BigInt, log } from "@graphprotocol/graph-ts";
 
 import { PairCreated } from "../../generated/Factory/Factory";
 import { createLiquidityPool } from "../common/creators";
+import { dex } from "../../modules/airstack";
+import { updateAirMeta } from "../../modules/airstack/common";
 
 // Handle the creation of a new liquidity pool from the Factory contract
 // Create the pool entity and track events from the new pool contract using the template specified in the subgraph.yaml
@@ -17,6 +19,13 @@ export function handlePairCreated(event: PairCreated): void {
     event.params.token0.toHexString(),
     event.params.token1.toHexString()
   );
+
+  dex.addDexPool(event.params.pair.toHexString(), BigInt.zero(), [
+    event.params.token0.toHexString(),
+    event.params.token1.toHexString(),
+  ]);
+
+  updateAirMeta(event);
 }
 
 // The call handler is used to update feeTo as on or off for each pool

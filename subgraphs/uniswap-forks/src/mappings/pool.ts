@@ -32,6 +32,9 @@ import {
 } from "../common/constants";
 import { getLiquidityPool } from "../common/getters";
 
+import { dex } from "../../modules/airstack";
+import { updateAirMeta } from "../../modules/airstack/common";
+
 // Handle transfers event.
 // The transfers are either occur as a part of the Mint or Burn event process.
 // The tokens being transferred in these events are the LP tokens from the liquidity pool that emitted this event.
@@ -94,6 +97,16 @@ export function handleMint(event: Mint): void {
   updateUsageMetrics(event, event.params.sender, UsageType.DEPOSIT);
   updateFinancials(event);
   updatePoolMetrics(event);
+
+  dex.addLiquidity(
+    event.address.toHexString(),
+    [event.params.amount0, event.params.amount1],
+    event.params.sender.toHexString(),
+    event.address.toHexString(),
+    event.block.hash.toHexString(),
+    event.block.timestamp
+  );
+  updateAirMeta(event);
 }
 
 // Handle a burn event emitted from a pool contract. Considered a withdraw into the given liquidity pool.
